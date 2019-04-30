@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+    <style>
+
+        body {
+          font: 10px sans-serif;
+        }
+
+        .line {
+          stroke: #000;
+          stroke-width: 1.5px;
+        }
+
+        .axis path,
+        .axis line {
+          fill: none;
+          stroke: #000;
+          shape-rendering: crispEdges;
+        }
+
+    </style>
+<body>
+  <button type="button" name="update_button" onclick="update_chart()">update</button>
+  <button type="button" name="gen_button" onclick="gen_gauss()">gen</button>
+  <input type="range" name="mySlider" id=mySlider min="-20" max="100" value="20">
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/jstat/latest/jstat.min.js"></script>
+<script>
+
+var margin = {top: 20, right: 30, bottom: 30, left: 40},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var array1 = Random_normal_Dist(30, 15);
+var array2 = Random_normal_Dist(39, 19);
+var array3 = Random_normal_Dist(32, 13);
+
+var x = d3.scaleLinear()
+            .rangeRound([0, width]);
+
+    //Min q
+    var d1 = d3.min(array1, function (d) { return d.q; });
+    var d2 = d3.min(array2, function (d) { return d.q; });
+    var min_d = d3.min([d1, d2]);
+
+    //Max q
+    d1 = d3.max(array1, function (d) { return d.q; });
+    d2 = d3.max(array2, function (d) { return d.q; });
+    var max_d = d3.max([d1, d2]);
+
+    //Max p
+    d1 = d3.max(array1, function (d) { return d.p; });
+    d2 = d3.max(array2, function (d) { return d.p; });
+    var max_p = d3.max([d1, d2]);
+
+  x.domain([min_d, max_d]).nice;
+
+  var y = d3.scaleLinear()
+      .domain([0, max_p])
+      .range([height, 0]);
+
+  var svg = d3.select("body").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  var gX = svg.append("g")
+              .attr("class", "x axis")
+              .attr("transform", "translate(0," + height + ")")
+              .call(d3.axisBottom(x));
+
+  //var gY = svg.append("g")
+  //            .attr("class", "y axis")
+  //            .call(d3.axisLeft(y));
+
+
+  var line = d3.line()
+      .x(function (d) { return x(d.q); })
+      .y(function (d) { return y(d.p); });
+
+  var flatline = d3.line()
+      .x(function (d) { return x(d.q); })
+      .y(function (d) { return y(0); });
+
+  dens1 = svg.append("path")
+      .datum(array1)
+      .attr("class", "line")
+      .attr("d", line)
+      .style("fill", "none")
+      .style("stroke", "blue")
+      .style("opacity", "0.5");
+
+  var area = d3.area()
+      .x(function(d) {
+          return x(d.q);
+      })
+    .y0(y(0))
+      .y1(function(d) {
+        return y(d.p);
+      });
+
+
+  dens2 = svg.append("path")
+      .datum(array1)
+      .attr("class", "line")
+      .attr("d", line)
+      .style("fill", "none")
+      .style("stroke", "red")
+      .style("opacity", "0.0");
+
+  svg.append("clipPath")
+    .attr("id","area")
+    .append("path")
+      .datum(array1)
+      .attr("class", "line")
+      .attr("d", area)
+    .attr("fill","none")
+
+  //dens3 = svg.append("path")
+  //    .datum(array2)
+  //    .attr("class", "line")
+  //    .attr("d", line)
+  //    .style("fill", "#4393c3")
+  //    .style("opacity", "0.5");
+
+	var rects = [[x(d3.select("#mySlider").attr("value")), x.range()[1]]]
+	
+	rect1 = svg.append("rect")
+		.data(rects)
+		.attr("x", function(d) { return d[0]; })
+		.attr("width", function(d) { return d[1] - d[0]; })
+		.attr("height", height)
+		.attr("y",0)
+		.attr("fill",function(d,i) { return ["steelblue"][i]; })
+		.style("opacity", "0.2")
+		.attr("clip-path", "url(#area)")
+
+  function Random_normal_Dist(mean, sd) {
+      data = [];
+      for (var i = mean - 4 * sd; i < mean + 4 * sd; i += 1) {
+          q = i
+          p = jStat.normal.pdf(i, mean, sd);
+          arr = {
+              "q": q,
+              "p": p
+          }
+          data.push(arr);
+      };
+      return data;
+  }
+  var i = 1;
+  // Listen to the slider?
+  d3.select("#mySlider").on("change", function(d){
+        selectedValue = this.value
+        update_threshold(selectedValue)
+      })
+	svg.append("clipPath")
+		.attr("id","area2")
+		.append("path")
+			.datum(array2)
+			.attr("class", "line")
+			.attr("d", area)
+		.attr("fill","none")
+	rect2 = svg.append("rect")
+		.attr("x", 0)
+		.attr("width", 0)
+		.attr("height",  height)
+		.attr("y",0)
+		.attr("clip-path", "url(#area2)")
+  function update_chart() {
+    // recompute density estimation
+    // update the chart
+    if( i == 1){
+      dens2
+        .datum(array2)
+        .transition()
+        .duration(1000)
+        .delay((d, j) => j * 200)
+        .style("opacity", "0.5")
+        .attr("class", "line")
+        .transition()
+        .duration(1000)
+        .style("fill", "#4393c3")
+        //.attr("d", flatline)
+        //.transition()
+        .duration(1000)
+        .style("opacity", "0.5")
+        .attr("class", "line")
+        .style("fill", "none")
+        .attr("d", line);
+    }
+		console.log(d3.select("#mySlider").attr("value"))
+		var rects = [[x(d3.select("#mySlider").attr("value")), x.range()[1]]]
+		rect2
+			.data(rects)
+			.transition()
+			.duration(1000)
+			.delay(1000)
+			.attr("x", function(d) { return d[0]; })
+			.attr("width", function(d) { return d[1] - d[0]; })
+			.attr("height", height)
+			.attr("y",0)
+			.attr("fill",function(d,i) { return ["red","steelblue"][i]; })
+			.style("opacity", "0.2")
+			.attr("clip-path", "url(#area2)")
+    //i = i +1;
+	}
+
+
+  function update_threshold(threshold) {
+    // recompute density estimation
+    // update the chart
+		var rects = [[x(threshold),x.range()[1]]]
+		rect1
+			.data(rects)
+			.transition()
+			.duration(1000)
+			.attr("x", function(d) { return d[0]; })
+			.attr("width", function(d) { return d[1] - d[0]; })
+			.attr("height", height)
+			.attr("y",0)
+			.attr("fill",function(d,i) { return "steelblue"})
+			.style("opacity", "0.2")
+			.attr("clip-path", "url(#area)")
+		rect2
+			.data(rects)
+			.transition()
+			.duration(1000)
+			.attr("x", function(d) { return d[0]; })
+			.attr("width", function(d) { return d[1] - d[0]; })
+			.attr("height", height)
+			.attr("y",0)
+			.attr("fill",function(d,i) { return "red"})
+			.style("opacity", "0.2")
+			.attr("clip-path", "url(#area2)")
+		threshline
+			.data(rects)
+			.transition()
+			.attr("x1", function(d) { return d[0]; })   //<<== change your code here
+			.attr("y1", 0)
+			.attr("x2", function(d) { return d[0]; })  //<<== and here
+			.attr("y2", height);
+		}
+
+		var drag = d3.drag()
+			.on('start', function(){
+				threshline.style("stroke-width", 6);
+			})
+			.on('drag', function(d){
+				// move circle
+				var dx = d3.event.dx;
+				var x1New = parseFloat(d3.select(this).attr('x1'))+ dx;
+				var x2New = parseFloat(d3.select(this).attr('x2'))+ dx;
+				if(x1New < 0){
+					x1New = 0;
+					x2New = 0;
+				}
+				if(x1New > width){
+					x1New = width;
+					x2New = width;
+				}
+				threshline.
+					attr("x1",x1New)
+					.attr("x2",x2New);
+				d3.select("#mySlider").property("value", x.invert(x1New));
+			})
+			.on('end', function(){
+				update_threshold(x.invert(threshline.attr("x1")));
+				threshline.style("stroke-width", 4);
+			}); 
+
+	threshline = svg.append("line")
+		.attr("x1", x(d3.select("#mySlider").attr("value")))  //<<== change your code here
+		.attr("y1", 0)
+		.attr("x2", x(d3.select("#mySlider").attr("value")))  //<<== and here
+		.attr("y2", height)
+		.attr("attr", "threshline")
+		.style("stroke-width", 4)
+		.style("stroke", "red")
+		.style("fill", "none")
+		.call(drag)
+
+
+  function gen_gauss() {
+		rval = jStat.normal.sample(30, 15)
+		svg.append("line")
+		.attr("x1", x(rval))  //<<== change your code here
+		.attr("y1", height * 0.90)
+		.attr("x2", x(rval))  //<<== and here
+		.attr("y2", height)
+		.style("stroke-width", 2)
+		.style("stroke", "black")
+		.style("fill", "none")
+	}
+
+	console.log(jStat.normal.sample(0, 1))
+
+</script>
